@@ -1,0 +1,31 @@
+# .dockerignore file
+# This file tells Docker which files/folders to exclude when building images
+# Similar to .gitignore but for Docker builds
+
+# Git files
+.git
+.gitignore
+
+# GitHub Actions
+.github
+
+# Documentation
+README.md
+*.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# This helps keep your Docker images smaller and builds faster!

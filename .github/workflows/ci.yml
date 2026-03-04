@@ -1,0 +1,71 @@
+# GitHub Actions CI/CD Workflow
+# This workflow automates the build and test process for our Docker application
+
+name: Docker CI/CD Pipeline
+
+# Trigger Configuration
+# This workflow runs automatically when code is pushed to the main branch
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+# Workflow Jobs
+jobs:
+  # Job 1: Build and Test Docker Image
+  build:
+    # Run this job on the latest Ubuntu runner provided by GitHub
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        
+      # Step 2: Set up Docker Buildx (enhanced Docker build capabilities)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        
+      # Step 3: Build the Docker image
+      - name: Build Docker Image
+        run: |
+          docker build -t devops-cicd-app:latest .
+          echo "✅ Docker image built successfully!"
+        
+      # Step 4: Verify the Docker image was created
+      - name: Verify Docker Image
+        run: |
+          docker images | grep devops-cicd-app
+          echo "✅ Docker image verified!"
+        
+      # Step 5: Run the Docker container for testing
+      - name: Run Docker Container
+        run: |
+          docker run -d -p 8080:80 --name test-container devops-cicd-app:latest
+          echo "✅ Container started successfully!"
+          sleep 5
+        
+      # Step 6: Test if the application is accessible
+      - name: Test Application
+        run: |
+          curl -f http://localhost:8080 || exit 1
+          echo "✅ Application is accessible and responding!"
+        
+      # Step 7: Stop and remove the test container
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop test-container || true
+          docker rm test-container || true
+          echo "✅ Cleanup completed!"
+        
+      # Step 8: Display success message
+      - name: Success
+        run: |
+          echo "🎉 CI/CD Pipeline completed successfully!"
+          echo "The Docker image is ready for deployment."
