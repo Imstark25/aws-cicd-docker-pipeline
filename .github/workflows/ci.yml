@@ -1,7 +1,7 @@
 # GitHub Actions CI/CD Workflow
-# This workflow automates the build and test process for our Docker application
+# This workflow automates the build, test, and deployment process for our Docker application
 
-name: Docker CI/CD Pipeline
+name: Docker CI/CD Pipeline with AWS Deployment
 
 # Trigger Configuration
 # This workflow runs automatically when code is pushed to the main branch
@@ -15,11 +15,16 @@ on:
       - main
       - master
 
+# Environment Variables
+env:
+  DOCKER_IMAGE_NAME: devops-cicd-app
+  DOCKER_IMAGE_TAG: ${{ github.sha }}
+
 # Workflow Jobs
 jobs:
   # Job 1: Build and Test Docker Image
-  build:
-    # Run this job on the latest Ubuntu runner provided by GitHub
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     
     steps:
@@ -34,19 +39,20 @@ jobs:
       # Step 3: Build the Docker image
       - name: Build Docker Image
         run: |
-          docker build -t devops-cicd-app:latest .
+          docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
+          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_IMAGE_TAG }}
           echo "✅ Docker image built successfully!"
         
       # Step 4: Verify the Docker image was created
       - name: Verify Docker Image
         run: |
-          docker images | grep devops-cicd-app
+          docker images | grep ${{ env.DOCKER_IMAGE_NAME }}
           echo "✅ Docker image verified!"
         
       # Step 5: Run the Docker container for testing
       - name: Run Docker Container
         run: |
-          docker run -d -p 8080:80 --name test-container devops-cicd-app:latest
+          docker run -d -p 8080:80 --name test-container ${{ env.DOCKER_IMAGE_NAME }}:latest
           echo "✅ Container started successfully!"
           sleep 5
         
@@ -57,15 +63,81 @@ jobs:
           echo "✅ Application is accessible and responding!"
         
       # Step 7: Stop and remove the test container
-      - name: Cleanup
+      - name: Cleanup Test Container
         if: always()
         run: |
           docker stop test-container || true
           docker rm test-container || true
           echo "✅ Cleanup completed!"
         
-      # Step 8: Display success message
-      - name: Success
+      # Step 8: Save Docker image as artifact (optional - for deployment)
+      - name: Save Docker Image
         run: |
-          echo "🎉 CI/CD Pipeline completed successfully!"
+          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > devops-cicd-app.tar.gz
+          echo "✅ Docker image saved!"
+        
+      # Step 9: Upload Docker image artifact
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-image
+          path: devops-cicd-app.tar.gz
+          retention-days: 1
+        
+      # Step 10: Display success message
+      - name: Build Success
+        run: |
+          echo "🎉 CI Pipeline completed successfully!"
           echo "The Docker image is ready for deployment."
+  
+  # Job 2: Deploy to Docker Hub (Optional)
+  push-to-dockerhub:
+    name: Push to Docker Hub
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    # Only run on main branch and when Docker Hub credentials are configured
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        
+      # Configure Docker Hub credentials in GitHub Secrets:
+      # Settings -> Secrets -> Actions -> New repository secret
+      # DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        
+      - name: Build and Push to Docker Hub
+        if: success()
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+          echo "✅ Image pushed to Docker Hub!"
+        continue-on-error: true
+
+  # Job 3: Instructions for Manual AWS Deployment
+  deployment-info:
+    name: Deployment Information
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Display Deployment Instructions
+        run: |
+          echo "🚀 Your Docker image is ready for AWS EC2 deployment!"
+          echo ""
+          echo "📋 Next Steps:"
+          echo "1. SSH into your EC2 instance"
+          echo "2. Pull the latest code from GitHub"
+          echo "3. Build and run the Docker container"
+          echo ""
+          echo "📖 See AWS-DEPLOYMENT.md for detailed instructions"
