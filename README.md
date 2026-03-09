@@ -1,5 +1,8 @@
 # 🚀 DevOps CI/CD Project
 
+![GitHub last commit](https://img.shields.io/github/last-commit/Imstark25/aws-cicd-docker-pipeline)
+![GitHub repo size](https://img.shields.io/github/repo-size/Imstark25/aws-cicd-docker-pipeline)
+
 A complete beginner-friendly DevOps project demonstrating containerization with Docker, automated CI/CD pipelines using GitHub Actions, and cloud deployment on AWS EC2.
 
 ## 📋 Table of Contents
